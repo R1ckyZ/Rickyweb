@@ -650,7 +650,7 @@ NTFS数据流加密 > 360压缩包打开
 
 例子
 
-![20210628221808969](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210628221808969.png)
+![20210628221808969](img/20210628221808969.png)
 
 ```
     1       2       3
