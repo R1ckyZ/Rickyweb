@@ -34,7 +34,7 @@ if(!isset($_GET['code'])){
 
 需要闭合前面的然后单独执行后面的语句, 根目录里找到flag
 
-![20210512105511541](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210512105511541.png)
+![20210512105511541](img/20210512105511541.png)
 
 ## [津门杯2021]power_cut 
 
@@ -52,7 +52,7 @@ echo str_replace('flag','flflagag',serialize($a));
 
 log GET传参得到flag
 
-![20210512113606810](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210512113606810.png)
+![20210512113606810](img/20210512113606810.png)
 
 ## [津门杯2021]easysql
 
@@ -146,7 +146,7 @@ for i in range(1, 1000):
 
 结果
 
-![20210516194109357](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210516194109357.png)
+![20210516194109357](img/20210516194109357.png)
 
 ## [津门杯2021]Uploadhub
 
@@ -185,7 +185,7 @@ var_dump(file_get_contents('/flag'));
 
 结果
 
-![20210516204019501](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210516204019501.png)
+![20210516204019501](img/20210516204019501.png)
 
 ## [津门杯2021]GoOSS
 
@@ -218,7 +218,7 @@ payload
 
 结果
 
-![20210516210159772](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210516210159772.png)
+![20210516210159772](img/20210516210159772.png)
 
 ## 总结
 

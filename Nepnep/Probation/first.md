@@ -96,7 +96,7 @@ select 1,'c4ca4238a0b923820dcc509a6f75849b' from user where username=?
 
 在 sql 查询语句中会伪造出 id为1, password 为 c4ca4238a0b923820dcc509a6f75849b 的数据
 
-![20210331004425390](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210331004425390.png)
+![20210331004425390](img/20210331004425390.png)
 
 然后我们的用户名是 admin, POP链就形成了, 整理如下
 
@@ -248,7 +248,7 @@ CREATE TABLE f as select sql [ (dummy1 TEXT, dummy2 TEXT,`ricky` ] from sqlite_m
 
 得到结果
 
-![20210402201602697](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210402201602697.png)
+![20210402201602697](img/20210402201602697.png)
 
 然后再次注入得到字段数据
 
@@ -258,7 +258,7 @@ CREATE TABLE f as select flag_2a2d04c3 [ (dummy1 TEXT, dummy2 TEXT,`ricky` ] fro
 
 得到 flag
 
-![20210402201746142](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210402201746142.png)
+![20210402201746142](img/20210402201746142.png)
 
 payload
 
@@ -374,7 +374,7 @@ echo '(~'.$b.')(~'.$d.');';
 
 直接执行/readflag会提示ret=127, 用蚁剑插件 PHP_GC_UAF 执行 /readflag
 
-![pbTTFocjl9faMPzE](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/pbTTFocjl9faMPzE.png)
+![pbTTFocjl9faMPzE](img/pbTTFocjl9faMPzE.png)
 
 ## 小结
 

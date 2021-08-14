@@ -208,11 +208,11 @@ action=upload&filename=&url=phar://upload/d99081fe929b750e0557f85e6499103f/phar.
 
 触发如图所示
 
-![20210412211341178](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210412211341178.png)
+![20210412211341178](img/20210412211341178.png)
 
 成功后就会把🐎写入 ricky.txt
 
-![20210412211455939](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210412211455939.png)
+![20210412211455939](img/20210412211455939.png)
 
 换用这个 .htaccess 内容解析 txt 文件
 
@@ -228,7 +228,7 @@ action=upload&filename=.htaccess&url=data:image/png;base64,QWRkSGFuZGxlciBwaHA3L
 
 再访问就发现已经可以 getshell 了
 
-![20210412212005842](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210412212005842.png)
+![20210412212005842](img/20210412212005842.png)
 
 有 open_basedir 的限制, 可以用 ini_set 绕过
 
@@ -238,7 +238,7 @@ cmd=ini_set('open_basedir','..');mkdir('hack');chdir('hack');chdir('..');chdir('
 
 结果
 
-![20210412213521568](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210412213521568.png)
+![20210412213521568](img/20210412213521568.png)
 
 ## [MRCTF2021]Half-Nosqli
 
@@ -296,7 +296,7 @@ http://ftp:8899/
 
 然后进入 /home 发现是一个可以访问 外网 和 内网 的 url, 前提是必须 `http://` 开头, 其它的均会解析失败, 题目又说 flag 放在 ftp 的 files 里面, 所以需要伪造 ftp 数据包, nodejs 可以进行 [CRLF 注入](http://www.iricky.ltd/2021/01/27/31.html#Nodejs8_SSRF) , 尝试用高编码导入 ftp 数据包, ftp 控制命令如下
 
-![20210414092205951](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210414092205951.png)
+![20210414092205951](img/20210414092205951.png)
 
 ```
 USER anonymous # 登录匿名用户
@@ -370,7 +370,7 @@ nc -lvp 8888
 
 结果
 
-![20210414204048513](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210414204048513.png)
+![20210414204048513](img/20210414204048513.png)
 
 ## [WMCTF2020]Web Check in
 

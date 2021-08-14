@@ -119,7 +119,7 @@ php://filter/write=convert.%6%39conv.%5%35CS-2LE.%5%35CS-2BE|?<uc cr@ni(y_$BCGFu
 
 这样直接访问沙盒里生成的文件就等同于获得了一个 shell, 然后就是访问根目录的 flag 文件 get shell
 
-![20210419140652234](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210419140652234.png)
+![20210419140652234](img/20210419140652234.png)
 
 WP中介绍了**字符串过滤器中的部分 **, **压缩过滤器**和**加密过滤器**, 再研究一下这三个冷门的过滤器
 
@@ -380,11 +380,11 @@ eval('unset('.$val.');');
 
 因为该 正则表达式 是单行匹配 `/^(\$hive)/`, 所以加了换行符以后下面的语句作为单独的一条 php 语句进行处理, 不会进入 `'@hive'.$key` 的拼接
 
-![20210419214824484](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210419214824484.png)
+![20210419214824484](img/20210419214824484.png)
 
 少了换行符时
 
-![20210419214839882](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210419214839882.png)
+![20210419214839882](img/20210419214839882.png)
 
 payload
 
@@ -991,11 +991,11 @@ if(!stripos(file_get_contents($_GET['page']),'<?') && !stripos(file_get_contents
 
 sample
 
-![20210422160610781](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210422160610781.png)
+![20210422160610781](img/20210422160610781.png)
 
 通过这个漏洞可以包含写入的 profile 文件
 
-![20210422161233845](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210422161233845.png)
+![20210422161233845](img/20210422161233845.png)
 
 ****
 
@@ -1373,7 +1373,7 @@ print(response.text)
 
 结果
 
-![20210422183028423](https://raw.githubusercontent.com/Ricky-369369/Rickyweb/main/Nepnep/Probation/img/20210422183028423.png)
+![20210422183028423](img/20210422183028423.png)
 
 ## 小结
 

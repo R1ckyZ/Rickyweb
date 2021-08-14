@@ -200,17 +200,17 @@ imagepng($img,"aa.png");
 
 主要采用了3方法将原有的payload改进, 提取脚本中的16进制
 
-![20210526005233802](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526005233802.png)
+![20210526005233802](img/20210526005233802.png)
 
 然后放入 png 中修改
 
-![20210526005615353](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526005615353.png)
+![20210526005615353](img/20210526005615353.png)
 
-反向加密![20210526010859186](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526010859186.png)
+反向加密![20210526010859186](img/20210526010859186.png)
 
 修改后运行 generator.py
 
-![20210526010024282](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526010024282.png)
+![20210526010024282](img/20210526010024282.png)
 
 得到图片后通过 upload.html 上传
 
@@ -227,7 +227,7 @@ imagepng($img,"aa.png");
 
 上传至 image/a.zip
 
-![20210526010317403](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526010317403.png)
+![20210526010317403](img/20210526010317403.png)
 
 其中考察的知识点
 
@@ -249,7 +249,7 @@ if(mb_strtolower('İ')==='i'){
 
 解压时进行目录穿梭
 
-![20210526010410152](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526010410152.png)
+![20210526010410152](img/20210526010410152.png)
 
 然后访问 /example/a.php, 蚁剑连接, grep搜索 flag
 
@@ -259,7 +259,7 @@ grep -rn 'flag{' /etc/*
 
 结果
 
-![20210526010701473](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526010701473.png)
+![20210526010701473](img/20210526010701473.png)
 
 ## Ezlight
 
@@ -273,7 +273,7 @@ grep -rn 'flag{' /etc/*
 
 但是下面有个 catchImage, 跟踪至 fetchImageFile 函数
 
-![20210526180924195](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526180924195.png)
+![20210526180924195](img/20210526180924195.png)
 
 可以得知 fetchImageFile 函数可以获取外网的内容
 
@@ -299,7 +299,7 @@ grep -rn 'flag{' /etc/*
 
 然后生成的 data 进入`vendor/intervention/image/src/Intervention/Image/AbstractDriver.php`
 
-![20210526182603897](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526182603897.png)
+![20210526182603897](img/20210526182603897.png)
 
 在此进入 `vendor/intervention/image/src/Intervention/Image/AbstractDecoder.php`
 
@@ -312,7 +312,7 @@ grep -rn 'flag{' /etc/*
 
 只是判断是否为 url, 所以可以传入 phar 协议, 最终进入 file_get_contents 触发反序列化
 
-![20210526182646747](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526182646747.png)
+![20210526182646747](img/20210526182646747.png)
 
 然后使用 laravel 7 的pop链即可攻击, 这里用的我自己挖的文件上传链打, 把上传路径设置对即可
 
@@ -396,7 +396,7 @@ namespace {
 
 ps: 公网起一个txt文件(test.txt为例) 写入 phar://./upload/image/xxx.gif 即可
 
-![20210526183712676](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210526183712676.png)
+![20210526183712676](img/20210526183712676.png)
 
 然后一句话木马连接在根目录下找到 flag
 
@@ -1182,7 +1182,7 @@ num_waf使得每次注入只能最多注 4 位, 拼接万能密码
 
 **`select exp(709)`会达到最大值，即如果select exp(710)及以上就会报错**
 
-![20210706104935223](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210706104935223.png)
+![20210706104935223](img/20210706104935223.png)
 
 然后改进 payload
 
@@ -1280,7 +1280,7 @@ if($_SESSION['username']=='admin'){
 
 拿到 flag
 
-![20210706113608183](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210706113608183.png)
+![20210706113608183](img/20210706113608183.png)
 
 ## [HFCTF 2021 Final]tinypng
 
@@ -1428,6 +1428,6 @@ namespace {
 
 得到 flag
 
-![20210705223629635](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210705223629635.png)
+![20210705223629635](img/20210705223629635.png)
 
 
